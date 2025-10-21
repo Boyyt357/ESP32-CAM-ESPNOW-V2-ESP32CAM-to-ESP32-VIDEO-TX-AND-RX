@@ -40,11 +40,11 @@ bool setupCamera() {
   config.pin_sscb_scl = 27;
   config.pin_pwdn = 32;
   config.pin_reset = -1;
-  config.xclk_freq_hz = 20000000;
+  config.xclk_freq_hz = 30000000;
   config.pixel_format = PIXFORMAT_JPEG;
   config.frame_size = FRAMESIZE_QVGA;
-  config.jpeg_quality = 25;
-  config.fb_count = 1;
+  config.jpeg_quality = 20;
+  config.fb_count = 2;
 
   if (esp_camera_init(&config) != ESP_OK) {
     Serial.println("Camera init failed");
@@ -110,9 +110,9 @@ void loop() {
     memcpy(packet + sizeof(h), img_buf + offset, len);
 
     esp_now_send(receiverMac, packet, sizeof(h) + len);
-    delay(5);
+    delay(1);
   }
 
   esp_camera_fb_return(fb);
-  delay(20);
+  delay(90);
 }

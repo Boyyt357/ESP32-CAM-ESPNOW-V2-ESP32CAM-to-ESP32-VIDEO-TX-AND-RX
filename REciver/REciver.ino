@@ -214,7 +214,7 @@ void handleRoot() {
 </head>
 <body>
   <div class="container">
-    <h1>📷 ESP32-CAM Live Stream</h1>
+    <h1>ESP32-CAM Live Stream</h1>
     <p class="subtitle">ESP-NOW Wireless Camera Feed</p>
     
     <div class="status">
@@ -229,13 +229,13 @@ void handleRoot() {
     
     <div class="controls">
       <button class="btn btn-primary" onclick="toggleRefresh()">
-        <span id="refreshBtn">⏸ Pause</span>
+        <span id="refreshBtn"> Pause</span>
       </button>
       <button class="btn btn-secondary" onclick="downloadImage()">
-        💾 Download
+         Download
       </button>
       <button class="btn btn-secondary" onclick="refreshNow()">
-        🔄 Refresh Now
+         Refresh Now
       </button>
     </div>
 
