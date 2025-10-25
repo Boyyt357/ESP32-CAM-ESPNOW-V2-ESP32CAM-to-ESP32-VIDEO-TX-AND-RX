@@ -1,97 +1,87 @@
-# **📷 ESP32-CAM High-Speed ESP-NOW Video Link**
+# **High-Speed ESP32-CAM Video Relay with ESP-NOW**
 
-## ***Tutorial and Testing👇***
-## **https://youtu.be/i73PIZorhhw**
+This repository contains the firmware for a two-node system designed to transmit video from an **ESP32-CAM (TX)** to a **Viewing Device (Client)** using the fast, peer-to-peer **ESP-NOW** protocol, with a second **ESP32 (RX)** acting as a dedicated relay and web server.
+
+This approach eliminates the need for a router and significantly reduces latency compared to standard Wi-Fi streaming methods.
+
+## **🎥 Video Tutorial**
+
+For a detailed, step-by-step guide on setting up the hardware, flashing the code, and understanding the core concepts, please refer to the official video tutorial:
+
+### **Tutorial and Testing👇**
+[ESP32-CAM to ESP32 High Speed Video TX/RX using ESP-NOW](https://youtu.be/i73PIZorhhw)
 <img width="1450" height="967" alt="3bb64f09-70f4-411a-84ec-98a55a553816" src="https://github.com/user-attachments/assets/2a39c84e-c764-425f-bb17-6d2cb3b30ca3" />
 
+## **🚀 Architecture**
 
-This project demonstrates a high-performance, low-latency method for streaming live video from an **ESP32-CAM** to a local viewing device (phone, PC) by leveraging a two-part system:
+The system operates in two stages:
 
-1. **ESP-NOW:** Used for the fast, dedicated, point-to-point wireless link between the ESP32-CAM (Sender) and a standard ESP32 (Receiver).  
-2. **Web Server (AP Mode):** The receiving ESP32 creates its own Wi-Fi Access Point (AP) and hosts a simple web server to display the incoming video frames.
+1. **Stage 1: High-Speed Wireless Link (ESP-NOW)**  
+   * **TX Unit (ESP32-CAM):** Captures JPEG images, fragments them into small chunks (up to 1400 bytes each) with custom headers, and bursts them directly to the RX Unit using ESP-NOW.  
+   * **RX Unit (ESP32):** Receives the fragments, uses a critical section (mutex) and a mapping structure (std::map\<uint32\_t, IncomingFrame\>) to reassemble the frame based on its unique frame\_id and packet count.  
+2. **Stage 2: Client Access (Wi-Fi AP & HTTP)**  
+   * The **RX Unit** simultaneously operates as a standard Wi-Fi Access Point (ESP32-AP).  
+   * Once a frame is fully reassembled, the RX Unit stores the complete JPEG data.  
+   * A viewing client (phone/PC) connects to the RX's AP and loads a simple web page which continuously requests the latest reassembled image via HTTP.
 
-This decoupled architecture allows the image transmission to benefit from the speed of **ESP-NOW** while still providing the convenience of Wi-Fi for viewing the stream.
+## **✨ Features**
 
-## **🚀 Key Features and Benefits**
+* **ESP-NOW for Core Transmission:** Achieves maximum theoretical data rates and minimal latency between the two ESP32 units.  
+* **Packet Fragmentation:** Implements custom logic to send large JPEG images by splitting them into smaller, transportable ESP-NOW packets.  
+* **Web Server Interface:** The RX unit provides a responsive, single-page web interface to display the live feed, calculate FPS, and handle download/pause functions.  
+* **Direct Link:** No external router required, making it ideal for field use, robotics, or long-range applications.  
+* **Camera Configuration:** TX unit is pre-configured for QVGA (320x240) at high quality (20) for optimal speed/quality balance over ESP-NOW.
 
-The primary advantage of this setup is the separation of duties, which dramatically improves performance, especially at range or in congested environments, compared to a single ESP32-CAM attempting to stream over a Wi-Fi network.
+## **🛠️ Setup and Configuration**
 
-| Feature | ESP-NOW Camera Link (This Project) | Standard Wi-Fi Camera Stream (Single Module) |
-| :---- | :---- | :---- |
-| **Protocol Efficiency** | **Extremely high.** Minimal overhead allows for faster frame rates. | High overhead (TCP/IP stack, HTTP/MJPEG headers) limits speed. |
-| **Wireless Range & Stability** | **Dedicated P2P Link.** The ESP-NOW link is robust and performs better over distance. | Dependent on a central router's signal strength and environmental congestion. |
-| **Network Requirement** | **No external router needed.** The receiver creates the access point. | Requires both the camera and viewer to connect to the same external Wi-Fi router. |
-| **Camera Focus** | ESP32-CAM focuses only on **capture and sending**, optimizing its performance. | Single module handles camera capture, JPEG encoding, TCP/IP stack management, and HTTP serving. |
+This project requires manually configuring the MAC addresses of the two devices to establish the peer-to-peer ESP-NOW link.
 
-## **🛠️ Components Required**
+### **1\. Identify MAC Addresses**
 
-1. **ESP32-CAM Module** (Sender)  
-2. **Standard ESP32 Development Board** (Receiver/Web Server)  
-3. **USB-to-Serial Programmer** (for ESP32-CAM)
+**Before uploading the code**, you must get the MAC address of the device intended to be the **RX Unit (Receiver)** and the **TX Unit (Sender)**.
 
-## **⚙️ Setup and Code Upload Guide**
+You can upload a simple sketch to each ESP32 to get its Station MAC address (STA MAC):
 
-### **1\. Prerequisite Libraries and Setup**
+\#include \<WiFi.h\>  
+void setup() {  
+  Serial.begin(115200);  
+  delay(1000);  
+  Serial.print("STA MAC Address: ");  
+  Serial.println(WiFi.macAddress());  
+}  
+void loop() {}
 
-Ensure you are using the **Arduino IDE** or **PlatformIO** with the ESP32 board package installed. This project uses standard built-in libraries (esp\_now.h, WiFi.h, esp\_camera.h, WebServer.h).
+### **2\. Configure TX Unit (TX.ino)**
 
-### **2\. Critical: Configure MAC Addresses**
+The TX unit needs to know the MAC address of the RX unit to send data.
 
-The ESP-NOW protocol requires specifying the MAC address of the target device. You must configure these values correctly in both sketches.
+* **Action:** Update the receiverMac array in TX.ino with the **STA MAC address of your RX Unit**.
 
-A. Find Your MAC Addresses  
-Upload a simple sketch to both your ESP32-CAM and Standard ESP32 to print their Wi-Fi Station MAC addresses. The output will look like 00:4B:12:4A:81:F9.  
-B. Update the Sender Code (ESP32-CAM-Sender.ino)  
-Modify the receiverMac array to match the MAC address of your Standard ESP32 Receiver board.  
-// Receiver MAC (MAC of your Standard ESP32)  
-uint8\_t receiverMac\[6\] \= {0x00, 0x4B, 0x12, 0x4A, 0x81, 0xF9}; // \<-- UPDATE THIS
+// Receiver MAC (Update this with the RX Unit's STA MAC)  
+uint8\_t receiverMac\[6\] \= {0x00, 0x4B, 0x12, 0x4A, 0x81, 0xF9}; // \<-- \*\*CHANGE THIS\*\*
 
-C. Update the Receiver Code (ESP32-Receiver-Server.ino)  
-Modify the senderMac array to match the MAC address of your ESP32-CAM Sender board.  
-// Sender MAC (MAC of your ESP32-CAM)  
-uint8\_t senderMac\[6\] \= {0x8C, 0x4F, 0x00, 0xD0, 0x4F, 0x20}; // \<-- UPDATE THIS
+### **3\. Configure RX Unit (RX.ino)**
 
-### **3\. Uploading the Code**
+The RX unit needs to know the MAC address of the TX unit to register the peer.
 
-1. Upload the **Sender Code** (ESP32-CAM-Sender.ino) to your **ESP32-CAM**.  
-2. Upload the **Receiver Code** (ESP32-Receiver-Server.ino) to your **Standard ESP32** board.
+* **Action:** Update the senderMac array in RX.ino with the **STA MAC address of your TX Unit (ESP32-CAM)**.
 
-## **💻 How to Use the System**
+// sender MAC (Update this with the TX Unit's STA MAC)  
+uint8\_t senderMac\[6\] \= {0x8C, 0x4F, 0x00, 0xD0, 0x4F, 0x20}; // \<-- \*\*CHANGE THIS\*\*
 
-### **1\. Power On**
+### **4\. Upload Code**
 
-Power both the ESP32-CAM (Sender) and the Standard ESP32 (Receiver).
+1. Upload RX.ino to your standard ESP32 board.  
+2. Upload TX.ino to your ESP32-CAM board.
 
-### **2\. Connect to the Access Point**
+## **📺 Usage**
 
-The Standard ESP32 (Receiver) will automatically create a Wi-Fi Access Point (AP).
+Once both devices are powered on and running:
 
-* **SSID:** ESP32-AP  
-* **Password:** esp32pass
+1. **Connect Client:** Connect your phone, tablet, or PC to the Wi-Fi Access Point created by the RX Unit:  
+   * **SSID:** ESP32-AP  
+   * **Password:** esp32pass  
+2. **Access Stream:** Open a web browser and navigate to the IP address of the RX Unit's Access Point:  
+   \[http://192.168.4.1\](http://192.168.4.1)
 
-Connect your phone, tablet, or PC to this Wi-Fi network.
-
-### **3\. View the Stream**
-
-Open a web browser on your connected device and navigate to the default IP address:
-
-\[http://192.168.4.1\](http://192.168.4.1)
-
-You should now see the live video stream being served from the receiver, with the image data being rapidly fed over the dedicated ESP-NOW link.
-
-### **4\. Web Interface Functions**
-
-The basic web interface provides:
-
-* **Live Stream:** Displays the most recently received JPEG frame.  
-* **Pause/Play Button:** Stops or resumes the auto-refreshing stream.  
-* **Download Button:** Captures and downloads the current frame as a JPEG file.  
-* **Statistics:** Displays estimated FPS (Frames Per Second) and latency.
-
-## **🎯 Ideal Use Cases**
-
-This high-speed, dual-module approach is perfect for applications where low latency and reliable data transmission are critical:
-
-1. **Remote FPV (First-Person View) for RC Models/Drones:** The dedicated ESP-NOW link ensures minimal delay when transmitting video from a fast-moving vehicle to a nearby ground station.  
-2. **Long-Range Monitoring:** Place the ESP32-CAM far from the viewing location, and use the Standard ESP32 as a "wireless repeater" or gateway to bridge the high-speed ESP-NOW link to a convenient local Wi-Fi AP.  
-3. **Industrial/Workshop Monitoring:** Monitor equipment in a noisy RF environment where standard Wi-Fi might struggle, relying on the robust ESP-NOW protocol to punch through interference.
+3. The web page will load and automatically begin requesting the latest image from the RX's internal buffer, displaying a near real-time video stream transmitted over ESP-NOW.
